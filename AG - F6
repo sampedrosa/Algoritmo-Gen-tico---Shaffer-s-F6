@@ -1,0 +1,145 @@
+# TRABALHO DE ALGORITMO GENÉTICO - INTELIGÊNCIA COMPUTACIONAL
+from random import randint, random
+from math import sin, sqrt
+from matplotlib import pyplot
+
+# Parâmetros
+CHMSIZE = 44
+ACCURACY = 5
+POPSIZE = 100
+GENERATIONS = 400
+MUTATION = 0.008
+CROSSOVER = 0.65
+
+
+def f6(x, y):  # Função F6 de Shaffer
+    var1 = sin(sqrt(x * x + y * y))
+    var2 = 1 + 0.001 * (x * x + y * y)
+    return 0.5 - (var1 * var1 - 0.5) / (var2 * var2)
+
+
+def decode(chromosome):  # Decodificação do cromossoma com retorno da aptidão/resultado
+    x = 0
+    y = 0
+
+    # Separação do X e Y e conversão para base decimal
+    for i in range(int(CHMSIZE/2)):
+        x = x + (chromosome[int((CHMSIZE/2) - 1)-i] * (2**i))
+        y = y + (chromosome[int(CHMSIZE - 1)-i] * (2**i))
+
+    # Multiplicados por 200/2^22-1
+    x = x * 200/((2**(CHMSIZE/2)) - 1)
+    y = y * 200/((2**(CHMSIZE/2)) - 1)
+
+    # Somados ao mínimo
+    x = x - 100
+    y = y - 100
+
+    return f6(x, y)
+
+
+def create_fitness_list(population):  # Criação de uma lista da aptidão da população
+    fit_list = []
+
+    for i in population:
+        fit_list.append(decode(i))
+
+    return fit_list
+
+
+def roulette(population, fit):
+    rand = random() * sum(fit)
+    for i in range(POPSIZE):
+        if rand < sum(fit[0:(i+1)]):
+            return population[i]
+
+
+def crossover(chromosome1, chromosome2):  # Crossover entre dois cromossomos, gerando duas crias
+    if random() <= CROSSOVER:   # Taxa de crossover
+        cutoff = randint(1, CHMSIZE-2)
+        head_child1 = chromosome1[0:cutoff]
+        tail_child1 = chromosome2[cutoff:CHMSIZE]
+        head_child2 = chromosome2[0:cutoff]
+        tail_child2 = chromosome1[cutoff:CHMSIZE]
+    else:
+        return chromosome1, chromosome2
+
+    child1 = head_child1 + tail_child1
+    child2 = head_child2 + tail_child2
+
+    return child1, child2
+
+
+def mutation(chromosome):  # Mutação de um cromossoma por vez
+    new_chromosome = []
+    for i in range(CHMSIZE):
+        if random() <= MUTATION:  # Taxa de mutação
+            if chromosome[i] == 1:
+                new_chromosome.append(0)
+            else:
+                new_chromosome.append(1)
+        else:
+            new_chromosome.append(chromosome[i])
+
+    return new_chromosome
+
+
+def elitism(old_population, new_population, fit):  # Elitismo passando o melhor indivíduo para próxima geração
+    bestone = old_population[fit.index(max(fit))]
+
+    print(f'MELHOR CROMOSSOMA = {bestone}')
+    print(f'MELHOR FITNESS = {round(max(fit), ACCURACY)}\n')
+
+    new_population.pop(randint(0, POPSIZE-1))
+    new_population.append(bestone)
+
+    return new_population
+
+
+def create_population():  # Criação de população randomica
+    initial_population = []
+    for i in range(POPSIZE):
+        chromosome = []
+        for j in range(CHMSIZE):
+            if randint(0, 100) > 50:
+                chromosome.append(1)
+            else:
+                chromosome.append(0)
+        initial_population.append(chromosome)
+
+    return initial_population
+
+
+def plot_best_fitness(best_fitness_list):  # Plota o gráfico da melhor aptidão por geração
+    pyplot.plot(list(range(GENERATIONS)), best_fitness_list)
+    pyplot.ylabel('MELHOR FITNESS')
+    pyplot.xlabel('GERAÇÃO')
+    pyplot.show()
+
+
+# main
+current_population = create_population()
+bestones = []  # Lista que guarda o valor da aptidão do melhor por geração
+
+# Loop das gerações
+for generation in range(GENERATIONS):
+    next_population = []
+
+    # Obtendo uma lista das aptidões de mesmo índice que a lista da população
+    fitness_list = create_fitness_list(current_population)
+    print(f'GERAÇÃO: {generation}  -  MÉDIA DO FITNESS: {sum(fitness_list)/POPSIZE}')
+
+    # Cruzamento e criação da nova geração
+    for mating in range(int(POPSIZE/2)):
+        father = roulette(current_population, fitness_list)
+        mother = roulette(current_population, fitness_list)
+        children = list(crossover(father, mother))  # Retorna uma dupla de filhos providos de dois pais
+        next_population.append(mutation(children.pop()))
+        next_population.append(mutation(children.pop()))
+
+    bestones.append(max(fitness_list))
+
+    # Próxima população passa a ser a atual
+    current_population = elitism(current_population, next_population, fitness_list)
+
+plot_best_fitness(bestones)
